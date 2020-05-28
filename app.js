@@ -81,8 +81,16 @@ discover.on('offline', function(hubInfo) {
 })
 
 // Look for hubs:
-console.log('Starting discovery.')
-discover.start()
+if (config.hubs) {
+  console.log("using config defined hubs", config.hubs)
+  config.hubs.forEach(hub => harmony(hub.ip)
+  .then(client => 
+    startProcessing(parameterize(hub.name), client)
+  ))
+} else {
+  console.log('Starting discovery.')
+  discover.start()
+}
 
 // mqtt api
 

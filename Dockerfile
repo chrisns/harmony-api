@@ -1,15 +1,13 @@
-FROM node:argon
+FROM node:alpine@sha256:c81d659f51a11aea6d73598fce064cf087b21caf9046fbf34530d9f1d43c8ec8
 
-# Create app directory
-RUN mkdir -p /usr/src/app
 WORKDIR /usr/src/app
 
-# Install app dependencies
-COPY package.json /usr/src/app
-RUN rm -Rf node_modules
+COPY package.json .
+COPY package-lock.json .
 RUN npm install
 
-COPY . /usr/src/app
+COPY app.js .
+COPY public .
 COPY ./config/config.sample.json /config/config.json
 
 ENV CONFIG_DIR /config
