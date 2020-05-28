@@ -1,5 +1,7 @@
 # Harmony API!!
 
+> fork from https://github.com/maddox/harmony-api but with a few improvements, such as eslint, optional discovery, github ci builds, cross arch docker builds (run on your non x86 hardware) and using dependabot to stay on top of dependency updates
+
 Harmony API is a simple server allowing you to query/control multiple local [Harmony
 Home Hubs](http://myharmony.com/products/detail/home-hub/) and their devices
 over HTTP or MQTT.
