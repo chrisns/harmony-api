@@ -13,4 +13,5 @@ COPY ./config/config.sample.json /config/config.json
 ENV CONFIG_DIR /config
 
 EXPOSE 8282
+USER node
 CMD [ "npm", "start" ]
