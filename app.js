@@ -5,10 +5,10 @@ var morgan = require('morgan')
 var bodyParser = require('body-parser')
 var parameterize = require('parameterize')
 
-var config_dir = process.env.CONFIG_DIR || './config'
-var config = require(config_dir + '/config.json')
+var configDir = process.env.CONFIG_DIR || './config'
+var config = require(configDir + '/config.json')
 
-var harmonyHubDiscover = require('harmonyhubjs-discover')
+var HarmonyHubDiscover = require('harmonyhubjs-discover')
 var harmony = require('harmonyhubjs-client')
 
 var harmonyHubClients = {}
@@ -24,13 +24,12 @@ var harmonyDevicesCache = {}
 var harmonyDeviceUpdateInterval = 1 * 60 * 1000 // 1 minute
 var harmonyDeviceUpdateTimers = {}
 
-var mqttClient = config.hasOwnProperty('mqtt_options')
+var mqttClient = config.mqtt_options
   ? mqtt.connect(config.mqtt_host, config.mqtt_options)
   : mqtt.connect(config.mqtt_host)
 var TOPIC_NAMESPACE = config.topic_namespace || 'harmony-api'
 
-var enableHTTPserver = config.hasOwnProperty('enableHTTPserver')
-  ? config.enableHTTPserver : true
+var enableHTTPserver = config.enableHTTPserver !== false
 
 var app = express()
 app.use(bodyParser.urlencoded({ extended: false }))
@@ -50,7 +49,7 @@ var hasHarmonyHubClient = function (req, res, next) {
 }
 app.use(hasHarmonyHubClient)
 
-var discover = new harmonyHubDiscover(61991)
+var discover = new HarmonyHubDiscover(61991)
 
 discover.on('online', function (hubInfo) {
   // Triggered when a new hub was found
@@ -67,7 +66,7 @@ discover.on('offline', function (hubInfo) {
   // Triggered when a hub disappeared
   console.log('Hub lost: ' + hubInfo.friendlyName + ' at ' + hubInfo.ip + '.')
   if (!hubInfo.friendlyName) { return }
-  hubSlug = parameterize(hubInfo.friendlyName)
+  var hubSlug = parameterize(hubInfo.friendlyName)
 
   clearInterval(harmonyStateUpdateTimers[hubSlug])
   clearInterval(harmonyActivityUpdateTimers[hubSlug])
@@ -103,13 +102,16 @@ mqttClient.on('message', function (topic, message) {
   var activityCommandMatches = topic.match(activityCommandPattern)
   var deviceCommandMatches = topic.match(deviceCommandPattern)
   var currentActivityCommandMatches = topic.match(currentActivityCommandPattern)
+  var hubSlug
+  var repeat
+  var messageComponents
 
   if (activityCommandMatches) {
-    var hubSlug = activityCommandMatches[1]
+    hubSlug = activityCommandMatches[1]
     var activitySlug = activityCommandMatches[2]
     var state = message.toString()
 
-    activity = activityBySlugs(hubSlug, activitySlug)
+    var activity = activityBySlugs(hubSlug, activitySlug)
     if (!activity) { return }
 
     if (state === 'on') {
@@ -118,23 +120,23 @@ mqttClient.on('message', function (topic, message) {
       off(hubSlug)
     }
   } else if (deviceCommandMatches) {
-    var hubSlug = deviceCommandMatches[1]
+    hubSlug = deviceCommandMatches[1]
     var deviceSlug = deviceCommandMatches[2]
-    var messageComponents = message.toString().split(':')
+    messageComponents = message.toString().split(':')
     var command = messageComponents[0]
-    var repeat = messageComponents[1]
+    repeat = messageComponents[1]
 
     command = commandBySlugs(hubSlug, deviceSlug, command)
     if (!command) { return }
 
     sendAction(hubSlug, command.action, repeat)
   } else if (currentActivityCommandMatches) {
-    var hubSlug = currentActivityCommandMatches[1]
-    var messageComponents = message.toString().split(':')
+    hubSlug = currentActivityCommandMatches[1]
+    messageComponents = message.toString().split(':')
     var commandSlug = messageComponents[0]
-    var repeat = messageComponents[1]
+    repeat = messageComponents[1]
 
-    hubState = harmonyHubStates[hubSlug]
+    var hubState = harmonyHubStates[hubSlug]
     if (!hubState) { return }
 
     activity = activityBySlugs(hubSlug, hubState.current_activity.slug)
@@ -170,14 +172,14 @@ function startProcessing (hubSlug, harmonyClient) {
 }
 
 function updateActivities (hubSlug) {
-  harmonyHubClient = harmonyHubClients[hubSlug]
+  var harmonyHubClient = harmonyHubClients[hubSlug]
 
   if (!harmonyHubClient) { return }
   console.log('Updating activities for ' + hubSlug + '.')
 
   try {
     harmonyHubClient.getActivities().then(function (activities) {
-      foundActivities = {}
+      var foundActivities = {}
       activities.some(function (activity) {
         foundActivities[activity.id] = { id: activity.id, slug: parameterize(activity.label), label: activity.label, isAVActivity: activity.isAVActivity }
         Object.defineProperty(foundActivities[activity.id], 'commands', {
@@ -194,7 +196,7 @@ function updateActivities (hubSlug) {
 }
 
 function updateState (hubSlug) {
-  harmonyHubClient = harmonyHubClients[hubSlug]
+  var harmonyHubClient = harmonyHubClients[hubSlug]
 
   if (!harmonyHubClient) { return }
   console.log('Updating state for ' + hubSlug + '.')
@@ -204,14 +206,14 @@ function updateState (hubSlug) {
 
   try {
     harmonyHubClient.getCurrentActivity().then(function (activityId) {
-      data = { off: true }
+      var data = { off: true }
 
-      activity = harmonyActivitiesCache[hubSlug][activityId]
-      commands = Object.keys(activity.commands).map(function (commandSlug) {
+      var activity = harmonyActivitiesCache[hubSlug][activityId]
+      var commands = Object.keys(activity.commands).map(function (commandSlug) {
         return activity.commands[commandSlug]
       })
 
-      if (activityId != -1 && activity) {
+      if (activityId !== -1 && activity) {
         data = { off: false, current_activity: activity, activity_commands: commands }
       } else {
         data = { off: true, current_activity: activity, activity_commands: commands }
@@ -220,15 +222,15 @@ function updateState (hubSlug) {
       // cache state for later
       harmonyHubStates[hubSlug] = data
 
-      if (!previousActivity || (activity.id != previousActivity.id)) {
+      if (!previousActivity || (activity.id !== previousActivity.id)) {
         publish('hubs/' + hubSlug + '/' + 'current_activity', activity.slug, { retain: true })
-        publish('hubs/' + hubSlug + '/' + 'state', activity.id == -1 ? 'off' : 'on', { retain: true })
+        publish('hubs/' + hubSlug + '/' + 'state', activity.id === -1 ? 'off' : 'on', { retain: true })
 
         for (var i = 0; i < cachedHarmonyActivities(hubSlug).length; i++) {
-          activities = cachedHarmonyActivities(hubSlug)
-          cachedActivity = activities[i]
+          var activities = cachedHarmonyActivities(hubSlug)
+          var cachedActivity = activities[i]
 
-          if (activity == cachedActivity) {
+          if (activity === cachedActivity) {
             publish('hubs/' + hubSlug + '/' + 'activities/' + cachedActivity.slug + '/state', 'on', { retain: true })
           } else {
             publish('hubs/' + hubSlug + '/' + 'activities/' + cachedActivity.slug + '/state', 'off', { retain: true })
@@ -242,15 +244,15 @@ function updateState (hubSlug) {
 }
 
 function updateDevices (hubSlug) {
-  harmonyHubClient = harmonyHubClients[hubSlug]
+  var harmonyHubClient = harmonyHubClients[hubSlug]
 
   if (!harmonyHubClient) { return }
   console.log('Updating devices for ' + hubSlug + '.')
   try {
     harmonyHubClient.getAvailableCommands().then(function (commands) {
-      foundDevices = {}
+      var foundDevices = {}
       commands.device.some(function (device) {
-        deviceCommands = getCommandsFromControlGroup(device.controlGroup)
+        var deviceCommands = getCommandsFromControlGroup(device.controlGroup)
         foundDevices[device.id] = { id: device.id, slug: parameterize(device.label), label: device.label }
         Object.defineProperty(foundDevices[device.id], 'commands', {
           enumerable: false,
@@ -267,15 +269,15 @@ function updateDevices (hubSlug) {
 }
 
 function getCommandsFromControlGroup (controlGroup) {
-  deviceCommands = {}
+  var deviceCommands = {}
   controlGroup.some(function (group) {
     group.function.some(function (func) {
-      slug = parameterize(func.label)
+      var slug = parameterize(func.label)
       deviceCommands[slug] = { name: func.name, slug: slug, label: func.label }
       Object.defineProperty(deviceCommands[slug], 'action', {
         enumerable: false,
         writeable: true,
-        value: func.action.replace(/\:/g, '::')
+        value: func.action.replace(/\:/g, '::') // eslint-disable-line no-useless-escape
       })
     })
   })
@@ -283,7 +285,7 @@ function getCommandsFromControlGroup (controlGroup) {
 }
 
 function cachedHarmonyActivities (hubSlug) {
-  activities = harmonyActivitiesCache[hubSlug]
+  var activities = harmonyActivitiesCache[hubSlug]
   if (!activities) { return [] }
 
   return Object.keys(harmonyActivitiesCache[hubSlug]).map(function (key) {
@@ -292,8 +294,8 @@ function cachedHarmonyActivities (hubSlug) {
 }
 
 function currentActivity (hubSlug) {
-  harmonyHubClient = harmonyHubClients[hubSlug]
-  harmonyHubState = harmonyHubStates[hubSlug]
+  var harmonyHubClient = harmonyHubClients[hubSlug]
+  var harmonyHubState = harmonyHubStates[hubSlug]
   if (!harmonyHubClient || !harmonyHubState) { return null }
 
   return harmonyHubState.current_activity
@@ -312,7 +314,7 @@ function activityBySlugs (hubSlug, activitySlug) {
 }
 
 function activityCommandsBySlugs (hubSlug, activitySlug) {
-  activity = activityBySlugs(hubSlug, activitySlug)
+  var activity = activityBySlugs(hubSlug, activitySlug)
 
   if (activity) {
     return Object.keys(activity.commands).map(function (commandSlug) {
@@ -322,7 +324,7 @@ function activityCommandsBySlugs (hubSlug, activitySlug) {
 }
 
 function cachedHarmonyDevices (hubSlug) {
-  devices = harmonyDevicesCache[hubSlug]
+  var devices = harmonyDevicesCache[hubSlug]
   if (!devices) { return [] }
 
   return Object.keys(harmonyDevicesCache[hubSlug]).map(function (key) {
@@ -344,7 +346,7 @@ function deviceBySlugs (hubSlug, deviceSlug) {
 
 function commandBySlugs (hubSlug, deviceSlug, commandSlug) {
   var command
-  device = deviceBySlugs(hubSlug, deviceSlug)
+  var device = deviceBySlugs(hubSlug, deviceSlug)
   if (device) {
     if (commandSlug in device.commands) {
       command = device.commands[commandSlug]
@@ -355,7 +357,7 @@ function commandBySlugs (hubSlug, deviceSlug, commandSlug) {
 }
 
 function off (hubSlug) {
-  harmonyHubClient = harmonyHubClients[hubSlug]
+  var harmonyHubClient = harmonyHubClients[hubSlug]
   if (!harmonyHubClient) { return }
 
   harmonyHubClient.turnOff().then(function () {
@@ -364,7 +366,7 @@ function off (hubSlug) {
 }
 
 function startActivity (hubSlug, activityId) {
-  harmonyHubClient = harmonyHubClients[hubSlug]
+  var harmonyHubClient = harmonyHubClients[hubSlug]
   if (!harmonyHubClient) { return }
 
   harmonyHubClient.startActivity(activityId).then(function () {
@@ -374,7 +376,7 @@ function startActivity (hubSlug, activityId) {
 
 function sendAction (hubSlug, action, repeat) {
   repeat = Number.parseInt(repeat) || 1
-  harmonyHubClient = harmonyHubClients[hubSlug]
+  var harmonyHubClient = harmonyHubClients[hubSlug]
   if (!harmonyHubClient) { return }
 
   var pressAction = 'action=' + action + ':status=press:timestamp=0'
@@ -404,8 +406,8 @@ app.get('/hubs', function (req, res) {
 })
 
 app.get('/hubs/:hubSlug/activities', function (req, res) {
-  hubSlug = req.params.hubSlug
-  harmonyHubClient = harmonyHubClients[hubSlug]
+  var hubSlug = req.params.hubSlug
+  var harmonyHubClient = harmonyHubClients[hubSlug]
 
   if (harmonyHubClient) {
     res.json({ activities: cachedHarmonyActivities(hubSlug) })
@@ -415,9 +417,7 @@ app.get('/hubs/:hubSlug/activities', function (req, res) {
 })
 
 app.get('/hubs/:hubSlug/activities/:activitySlug/commands', function (req, res) {
-  hubSlug = req.params.hubSlug
-  activitySlug = req.params.activitySlug
-  commands = activityCommandsBySlugs(req.params.hubSlug, req.params.activitySlug)
+  var commands = activityCommandsBySlugs(req.params.hubSlug, req.params.activitySlug)
 
   if (commands) {
     res.json({ commands: commands })
@@ -427,8 +427,8 @@ app.get('/hubs/:hubSlug/activities/:activitySlug/commands', function (req, res) 
 })
 
 app.get('/hubs/:hubSlug/devices', function (req, res) {
-  hubSlug = req.params.hubSlug
-  harmonyHubClient = harmonyHubClients[hubSlug]
+  var hubSlug = req.params.hubSlug
+  var harmonyHubClient = harmonyHubClients[hubSlug]
 
   if (harmonyHubClient) {
     res.json({ devices: cachedHarmonyDevices(hubSlug) })
@@ -438,12 +438,12 @@ app.get('/hubs/:hubSlug/devices', function (req, res) {
 })
 
 app.get('/hubs/:hubSlug/devices/:deviceSlug/commands', function (req, res) {
-  hubSlug = req.params.hubSlug
-  deviceSlug = req.params.deviceSlug
-  device = deviceBySlugs(hubSlug, deviceSlug)
+  var hubSlug = req.params.hubSlug
+  var deviceSlug = req.params.deviceSlug
+  var device = deviceBySlugs(hubSlug, deviceSlug)
 
   if (device) {
-    commands = Object.keys(device.commands).map(function (commandSlug) {
+    var commands = Object.keys(device.commands).map(function (commandSlug) {
       return device.commands[commandSlug]
     })
     res.json({ commands: commands })
@@ -453,8 +453,8 @@ app.get('/hubs/:hubSlug/devices/:deviceSlug/commands', function (req, res) {
 })
 
 app.get('/hubs/:hubSlug/status', function (req, res) {
-  hubSlug = req.params.hubSlug
-  harmonyHubClient = harmonyHubClients[hubSlug]
+  var hubSlug = req.params.hubSlug
+  var harmonyHubClient = harmonyHubClients[hubSlug]
 
   if (harmonyHubClient) {
     res.json(harmonyHubStates[hubSlug])
@@ -464,10 +464,10 @@ app.get('/hubs/:hubSlug/status', function (req, res) {
 })
 
 app.get('/hubs/:hubSlug/commands', function (req, res) {
-  hubSlug = req.params.hubSlug
-  activitySlug = harmonyHubStates[hubSlug].current_activity.slug
+  var hubSlug = req.params.hubSlug
+  var activitySlug = harmonyHubStates[hubSlug].current_activity.slug
 
-  commands = activityCommandsBySlugs(hubSlug, activitySlug)
+  var commands = activityCommandsBySlugs(hubSlug, activitySlug)
   if (commands) {
     res.json({ commands: commands })
   } else {
@@ -476,11 +476,11 @@ app.get('/hubs/:hubSlug/commands', function (req, res) {
 })
 
 app.post('/hubs/:hubSlug/commands/:commandSlug', function (req, res) {
-  hubSlug = req.params.hubSlug
-  activitySlug = harmonyHubStates[hubSlug].current_activity.slug
+  var hubSlug = req.params.hubSlug
+  var activitySlug = harmonyHubStates[hubSlug].current_activity.slug
   var commandSlug = req.params.commandSlug
 
-  activity = activityBySlugs(hubSlug, activitySlug)
+  var activity = activityBySlugs(hubSlug, activitySlug)
   if (activity && commandSlug in activity.commands) {
     sendAction(hubSlug, activity.commands[commandSlug].action, req.query.repeat)
 
@@ -491,8 +491,8 @@ app.post('/hubs/:hubSlug/commands/:commandSlug', function (req, res) {
 })
 
 app.put('/hubs/:hubSlug/off', function (req, res) {
-  hubSlug = req.params.hubSlug
-  harmonyHubClient = harmonyHubClients[hubSlug]
+  var hubSlug = req.params.hubSlug
+  var harmonyHubClient = harmonyHubClients[hubSlug]
 
   if (harmonyHubClient) {
     off(hubSlug)
@@ -504,7 +504,7 @@ app.put('/hubs/:hubSlug/off', function (req, res) {
 
 // DEPRECATED
 app.post('/hubs/:hubSlug/start_activity', function (req, res) {
-  activity = activityBySlugs(req.params.hubSlug, req.query.activity)
+  var activity = activityBySlugs(req.params.hubSlug, req.query.activity)
 
   if (activity) {
     startActivity(req.params.hubSlug, activity.id)
@@ -516,7 +516,7 @@ app.post('/hubs/:hubSlug/start_activity', function (req, res) {
 })
 
 app.post('/hubs/:hubSlug/activities/:activitySlug', function (req, res) {
-  activity = activityBySlugs(req.params.hubSlug, req.params.activitySlug)
+  var activity = activityBySlugs(req.params.hubSlug, req.params.activitySlug)
 
   if (activity) {
     startActivity(req.params.hubSlug, activity.id)
@@ -528,7 +528,7 @@ app.post('/hubs/:hubSlug/activities/:activitySlug', function (req, res) {
 })
 
 app.post('/hubs/:hubSlug/devices/:deviceSlug/commands/:commandSlug', function (req, res) {
-  command = commandBySlugs(req.params.hubSlug, req.params.deviceSlug, req.params.commandSlug)
+  var command = commandBySlugs(req.params.hubSlug, req.params.deviceSlug, req.params.commandSlug)
 
   if (command) {
     sendAction(req.params.hubSlug, command.action, req.query.repeat)
@@ -540,8 +540,7 @@ app.post('/hubs/:hubSlug/devices/:deviceSlug/commands/:commandSlug', function (r
 })
 
 app.get('/hubs_for_index', function (req, res) {
-  hubSlugs = Object.keys(harmonyHubClients)
-  output = ''
+  var output = ''
 
   Object.keys(harmonyHubClients).forEach(function (hubSlug) {
     output += '<h3 class="hub-name">' + hubSlug.replace('-', ' ') + '</h3>'
