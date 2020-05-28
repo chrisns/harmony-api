@@ -16,6 +16,7 @@
     "port": 1883,
     "username": "someuser",
     "password": "somepassword",
-    "rejectUnauthorized": false
+    "rejectUnauthorized": false,
+    "retain": true
   }
 }

@@ -90,6 +90,7 @@ if (config.hubs) {
 // mqtt api
 
 mqttClient.on('connect', function () {
+  console.log("mqtt connected")
   mqttClient.subscribe(TOPIC_NAMESPACE + '/hubs/+/activities/+/command')
   mqttClient.subscribe(TOPIC_NAMESPACE + '/hubs/+/devices/+/command')
   mqttClient.subscribe(TOPIC_NAMESPACE + '/hubs/+/command')
@@ -224,17 +225,19 @@ function updateState (hubSlug) {
 
       if (!previousActivity || (activity.id !== previousActivity.id)) {
         console.log(`activity changed from ${previousActivity ? previousActivity.slug : null} to ${activity.slug}`)
-        publish('hubs/' + hubSlug + '/' + 'current_activity', activity.slug, { retain: true })
-        publish('hubs/' + hubSlug + '/' + 'state', activity.id === -1 ? 'off' : 'on', { retain: true })
+        var retain = config.mqtt_options && config.mqtt_options.retain ? true : config.mqtt_options.retain
+
+        publish('hubs/' + hubSlug + '/' + 'current_activity', activity.slug, { retain: retain })
+        publish('hubs/' + hubSlug + '/' + 'state', activity.id === -1 ? 'off' : 'on', { retain: retain })
 
         for (var i = 0; i < cachedHarmonyActivities(hubSlug).length; i++) {
           var activities = cachedHarmonyActivities(hubSlug)
           var cachedActivity = activities[i]
 
           if (activity === cachedActivity) {
-            publish('hubs/' + hubSlug + '/' + 'activities/' + cachedActivity.slug + '/state', 'on', { retain: true })
+            publish('hubs/' + hubSlug + '/' + 'activities/' + cachedActivity.slug + '/state', 'on', { retain: retain })
           } else {
-            publish('hubs/' + hubSlug + '/' + 'activities/' + cachedActivity.slug + '/state', 'off', { retain: true })
+            publish('hubs/' + hubSlug + '/' + 'activities/' + cachedActivity.slug + '/state', 'off', { retain: retain })
           }
         }
       }
