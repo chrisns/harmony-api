@@ -20,7 +20,7 @@
     "body-parser": "^1.12.4",
     "harmonyhubjs-client": "^1.1.0",
     "harmonyhubjs-discover": "^1.0.2",
-    "parameterize": "^0.0.7",
+    "parameterize": "^1.0.0",
     "mqtt": "^4.1.0"
   },
   "devDependencies": {
