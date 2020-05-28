@@ -7,7 +7,7 @@ COPY package-lock.json .
 RUN npm install --production
 
 COPY app.js .
-COPY public .
+COPY public public
 COPY ./config/config.sample.json /config/config.json
 
 ENV CONFIG_DIR /config
