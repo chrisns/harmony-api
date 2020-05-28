@@ -223,6 +223,7 @@ function updateState (hubSlug) {
       harmonyHubStates[hubSlug] = data
 
       if (!previousActivity || (activity.id !== previousActivity.id)) {
+        console.log(`activity changed from ${previousActivity ? previousActivity.slug : null} to ${activity.slug}`)
         publish('hubs/' + hubSlug + '/' + 'current_activity', activity.slug, { retain: true })
         publish('hubs/' + hubSlug + '/' + 'state', activity.id === -1 ? 'off' : 'on', { retain: true })
 
