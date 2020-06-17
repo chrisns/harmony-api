@@ -79,9 +79,13 @@ discover.on('offline', function (hubInfo) {
 if (config.hubs) {
   console.log('using config defined hubs', config.hubs)
   config.hubs.forEach(hub => harmony(hub.ip)
-    .then(client =>
+    .then(client => {
+      client._xmppClient.on('error', error => {
+        console.error(error)
+        process.exit(1)
+      })
       startProcessing(parameterize(hub.name), client)
-    ))
+    }))
 } else {
   console.log('Starting discovery.')
   discover.start()
@@ -90,7 +94,7 @@ if (config.hubs) {
 // mqtt api
 
 mqttClient.on('connect', function () {
-  console.log("mqtt connected")
+  console.log('mqtt connected')
   mqttClient.subscribe(TOPIC_NAMESPACE + '/hubs/+/activities/+/command')
   mqttClient.subscribe(TOPIC_NAMESPACE + '/hubs/+/devices/+/command')
   mqttClient.subscribe(TOPIC_NAMESPACE + '/hubs/+/command')
@@ -193,6 +197,7 @@ function updateActivities (hubSlug) {
     })
   } catch (err) {
     console.log('ERROR: ' + err.message)
+    process.exit(1)
   }
 }
 
@@ -244,6 +249,7 @@ function updateState (hubSlug) {
     })
   } catch (err) {
     console.log('ERROR: ' + err.message)
+    process.exit(1)
   }
 }
 
@@ -269,6 +275,7 @@ function updateDevices (hubSlug) {
     })
   } catch (err) {
     console.log('Devices ERROR: ' + err.message)
+    process.exit(1)
   }
 }
 
