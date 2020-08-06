@@ -31,6 +31,10 @@ var TOPIC_NAMESPACE = config.topic_namespace || 'harmony-api'
 
 var enableHTTPserver = config.enableHTTPserver !== false
 
+if (config.reload) {
+  setTimeout(() => process.exit(0), config.reload * 1000)
+}
+
 var app = express()
 app.use(bodyParser.urlencoded({ extended: false }))
 app.use(express.static(path.join(__dirname, 'public')))
