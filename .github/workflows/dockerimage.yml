@@ -21,16 +21,16 @@ jobs:
         if: github.ref == 'refs/heads/master'
         uses: docker/login-action@v1
         with:
-          registry: docker.pkg.github.com
+          registry: ghcr.io
           username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.CR_PAT }}
 
       - name: Prepare
         id: prepare
         run: |
-          TAGS=${GITHUB_REPOSITORY}:sha-${GITHUB_SHA},docker.pkg.github.com/${GITHUB_REPOSITORY}/image:sha-${GITHUB_SHA}
+          TAGS=${GITHUB_REPOSITORY}:sha-${GITHUB_SHA},ghcr.io/${GITHUB_REPOSITORY}:sha-${GITHUB_SHA}
           if [ "$GITHUB_REF" == "refs/heads/master" ]; then
-            TAGS=$TAGS,${GITHUB_REPOSITORY}:latest,docker.pkg.github.com/${GITHUB_REPOSITORY}/image:latest
+            TAGS=$TAGS,${GITHUB_REPOSITORY}:latest,ghcr.io/${GITHUB_REPOSITORY}:latest
           fi
           echo ::set-output name=TAGS::${TAGS}
 
