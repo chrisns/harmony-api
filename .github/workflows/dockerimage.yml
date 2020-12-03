@@ -28,9 +28,9 @@ jobs:
       - name: Prepare
         id: prepare
         run: |
-          TAGS=${GITHUB_REPOSITORY}:sha-${GITHUB_SHA},docker.pkg.github.com/${GITHUB_REPOSITORY}:sha-${GITHUB_SHA}
+          TAGS=${GITHUB_REPOSITORY}:sha-${GITHUB_SHA},docker.pkg.github.com/${GITHUB_REPOSITORY}/image:sha-${GITHUB_SHA}
           if [ "$GITHUB_REF" == "refs/heads/master" ]; then
-            TAGS=$TAGS,${GITHUB_REPOSITORY}:latest,docker.pkg.github.com/${GITHUB_REPOSITORY}:latest
+            TAGS=$TAGS,${GITHUB_REPOSITORY}:latest,docker.pkg.github.com/${GITHUB_REPOSITORY}/image:latest
           fi
           echo ::set-output name=TAGS::${TAGS}
 
