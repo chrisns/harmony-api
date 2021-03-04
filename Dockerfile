@@ -1,4 +1,4 @@
-FROM node:alpine@sha256:9893caff951dd701298d7404b424e34eeaabe7751b9997399ed7b24daa274403
+FROM node:alpine@sha256:c01b5723b62c031744743b9641cad56b41b1d93fadee897443a5d7cca744bb5f
 LABEL org.opencontainers.image.source https://github.com/chrisns/harmony-api
 RUN apk add --no-cache git
 WORKDIR /usr/src/app
