@@ -19,24 +19,28 @@ jobs:
 
       - name: Login to GitHub
         if: github.ref == 'refs/heads/master'
-        uses: docker/login-action@v1
+        uses: docker/login-action@v1.9.0
         with:
           registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.CR_PAT }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Prepare
-        id: prepare
-        run: |
-          TAGS=${GITHUB_REPOSITORY}:sha-${GITHUB_SHA},ghcr.io/${GITHUB_REPOSITORY}:sha-${GITHUB_SHA}
-          if [ "$GITHUB_REF" == "refs/heads/master" ]; then
-            TAGS=$TAGS,${GITHUB_REPOSITORY}:latest,ghcr.io/${GITHUB_REPOSITORY}:latest
-          fi
-          echo ::set-output name=TAGS::${TAGS}
+      - id: docker_meta
+        uses: docker/metadata-action@v3.1.0
+        with:
+          images: |
+            ghcr.io/${{ github.repository }}
+            ${{ github.repository }}
+          flavor: |
+            latest=true
+          tags: |
+            type=sha,format=long
+            type=edge,branch=$repo.default_branch
 
       - name: build+push
         uses: docker/build-push-action@v2.4.0
         with:
           platforms: linux/arm64,linux/amd64,linux/arm/v6,linux/arm/v7
           push: ${{ github.ref == 'refs/heads/master' }}
-          tags: ${{ steps.prepare.outputs.TAGS }}
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          labels: ${{ steps.docker_meta.outputs.labels }}
