@@ -35,7 +35,7 @@ jobs:
           echo ::set-output name=TAGS::${TAGS}
 
       - name: build+push
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v2.4.0
         with:
           platforms: linux/arm64,linux/amd64,linux/arm/v6,linux/arm/v7
           push: ${{ github.ref == 'refs/heads/master' }}
