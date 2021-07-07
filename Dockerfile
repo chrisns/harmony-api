@@ -1,4 +1,4 @@
-FROM node:16.4.0-alpine
+FROM node:16.4.2-alpine
 RUN apk add --no-cache git
 WORKDIR /usr/src/app
 
