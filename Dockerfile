@@ -1,4 +1,4 @@
-FROM node:18.2.0-alpine@sha256:0677e437543d10f6cb050d92c792a14e5eb84340e3d5b4c25a88baa723d8a4ae
+FROM node:18.3.0-alpine@sha256:c43e83491468aabc9a144ca7d30c00d6ecfaa8a3931962d2579702a2b03a6ffd
 RUN apk add --no-cache git
 WORKDIR /usr/src/app
 
